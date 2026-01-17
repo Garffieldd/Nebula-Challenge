@@ -5,18 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Nebula-Challenge/config"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-/*
-Handler struct to hold the MongoDB client instance
-*/
-type Handler struct {
-	DB *config.DatabaseConfig
-}
 
 /*
 GetDomainsInformation handles the GET request to retrieve domain information, fetching data from MongoDB
