@@ -16,6 +16,7 @@ func init() {
 	if err := config.ConnectToMongo(); err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v ", err)
 	}
+
 	fmt.Println("Connected to MongoDB successfully")
 }
 
@@ -24,6 +25,7 @@ main is the entry point of the application, setting up the Gin router and routes
 */
 func main() {
 
+	defer config.CloseMongoConnection()
 	router := gin.Default()
 
 	routes.SetupRoutes(router)

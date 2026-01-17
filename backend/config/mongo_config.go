@@ -17,10 +17,15 @@ func init() {
 	_ = godotenv.Load()
 }
 
+type DatabaseConfig struct {
+	Client  *mongo.Client
+	DbName  string
+}
+
 /*
 mongoClient is the MongoDB client instance
 */
-var mongoClient *mongo.Client
+var mongoClient *DatabaseConfig
 
 /*
 ConnectToMongo establishes a connection to the MongoDB database grabbing the mongo data from enviromental variables
@@ -44,6 +49,34 @@ func ConnectToMongo() error {
 	}
 
 	err = client.Ping(context.TODO(), nil)
-	mongoClient = client
+
+	mongoClient = &DatabaseConfig{
+		Client: client,
+		DbName: dbName,
+	}
+
 	return err
+}
+
+/*
+ Get MongoClient is a helper function that helps to get the MongoDB client instance	
+*/
+func GetMongoClient() *DatabaseConfig {
+	if mongoClient == nil {
+		if err := ConnectToMongo(); err != nil {
+			panic(fmt.Sprintf("Failed to connect to MongoDB: %v", err))
+		}
+	}
+	return mongoClient
+
+}
+
+/*
+CloseMongoConnection closes the MongoDB connection
+*/
+func CloseMongoConnection() error {
+	if mongoClient != nil && mongoClient.Client != nil {
+		return mongoClient.Client.Disconnect(context.Background())
+	}	
+	return nil
 }
