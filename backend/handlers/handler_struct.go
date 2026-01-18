@@ -8,9 +8,9 @@ import (
 
 // Struct to hold scan request status and result
 type ScanRequest struct {
-    Status string
-    Result map[string]interface{}
-    Error  string
+    Status string `json:"status"`
+    Result []byte `json:"result"`// Store the TLS assessment result
+    Error  string `json:"error"` 
 }
 
 /*

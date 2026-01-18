@@ -1,0 +1,31 @@
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Binarios compilados de Go (Windows)
+*.exe
+*.exe~
+
+# Binarios en general (Linux/Mac también por si acaso)
+*.out
+*.test
+*.prof
+
+# Carpetas típicas de build
+bin/
+build/
+dist/
+obj/
+Debug/
+Release/
+
+# Archivos temporales de editores y Go
+*.swp
+*~
+.DS_Store
+.vscode/
+.idea/
+go.work

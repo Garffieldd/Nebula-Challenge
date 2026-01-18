@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/Nebula-Challenge/scripts"
@@ -32,7 +31,6 @@ func (h *Handler) StartScan(c *gin.Context) {
 	h.mu.Lock() //Acceder a la gorutina de manera segura
 	h.scanRequests[scanRequestID] = &ScanRequest{Status: "IN_PROGRESS"}
 	h.mu.Unlock()
-	fmt.Printf("[StartScan] Dirección del Handler usado: %p | Mapa: %p\n", h, h.scanRequests)
 
 	go func() { // gorutina para manejar la evaluacion asincronamente (un hilo ligero de go)
 		_, err := scripts.CheckTLS(req.Domain, true)
@@ -68,7 +66,6 @@ func (h *Handler) GetScanStatus(c *gin.Context) {
 	h.mu.Lock()
 	scanRequest, exists := h.scanRequests[scanRequestID]
 	h.mu.Unlock()
-	fmt.Printf("[GetScanStatus] Dirección del Handler usado: %p | Mapa: %p\n", h, h.scanRequests)
 	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Scan request not found"})
 		return
@@ -85,7 +82,7 @@ Args:
 	result map[string]interface{}: The result of the scan request
 	errMsg string: Any error message associated with the scan request
 */
-func (h *Handler) updateScanRequest(id string, status string, result map[string]interface{}, errMsg string) {
+func (h *Handler) updateScanRequest(id string, status string, result []byte, errMsg string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()                            // Para evitar condidiones de carrera
 	if value, exist := h.scanRequests[id]; exist { // Verifica que el ID exista antes de actualizar el estado de este scan Request
