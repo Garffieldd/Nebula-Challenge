@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/Nebula-Challenge/scripts"
@@ -70,7 +71,7 @@ func (h *Handler) GetScanStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Scan request not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": scanRequest.Status, "result": scanRequest.Result, "error": scanRequest.Error})
+	c.JSON(http.StatusOK, gin.H{"status": scanRequest.Status, "result": scanRequest.Result, "filteredResult": scanRequest.FilteredResult, "error": scanRequest.Error})
 }
 
 /*
@@ -89,5 +90,17 @@ func (h *Handler) updateScanRequest(id string, status string, result []byte, err
 		value.Status = status
 		value.Result = result
 		value.Error = errMsg
+
+		if status == "complete" && len(result) > 0 {
+			filtered, err := scripts.FilterSSLReport(result)
+			if err != nil {
+				fmt.Printf("Error filtering report for scan %s: %v", id, err)
+				value.FilteredResult = nil
+			} else {
+				value.FilteredResult = filtered
+			}
+
+			value.Result = nil //To not save useless data in memory
+		}
 	}
 }

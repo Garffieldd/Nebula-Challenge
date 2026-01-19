@@ -3,6 +3,7 @@ package handlers
 import (
 	"sync"
 	"github.com/Nebula-Challenge/config"
+    "github.com/Nebula-Challenge/scripts"
 
 )
 
@@ -10,6 +11,7 @@ import (
 type ScanRequest struct {
     Status string `json:"status"`
     Result []byte `json:"result"`// Store the TLS assessment result
+    FilteredResult *scripts.FilteredTLSReport `json:"filteredResult"`
     Error  string `json:"error"` 
 }
 

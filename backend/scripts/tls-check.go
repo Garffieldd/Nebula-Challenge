@@ -17,7 +17,7 @@ Args:
 
 Returns:
 
-	map[string]interface{}: The assessment result
+	[]byte: The assessment result in byte format
 	error: Any error encountered during the process
 */
 func CheckTLS(domain string, startnew bool) ([]byte, error) {
@@ -51,7 +51,7 @@ Args:
 
 Returns:
 
-	map[string]interface{}: The final assessment result
+	[]byte: The final assessment result in byte format
 	error: Any error encountered during the process
 */
 func PollUntilReady(domain string) ([]byte, error) {
@@ -72,16 +72,3 @@ func PollUntilReady(domain string) ([]byte, error) {
 	}
 }
 
-// func searchForDomainResults(domain string); error {
-// 	_, err := CheckTLS(domain, true) // Start a new assessment
-// 	if err != nil {
-// 		return err
-// 	}
-// 	finalResult, err := pollUntilReady(domain) // Poll until the assessment is ready
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return err
-
-// }
