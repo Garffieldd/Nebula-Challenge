@@ -2,10 +2,10 @@ package scripts
 
 import (
 	"fmt"
+	"github.com/tidwall/gjson"
 	"io"
 	"net/http"
 	"time"
-	"github.com/tidwall/gjson"
 )
 
 /*
@@ -61,7 +61,7 @@ func PollUntilReady(domain string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		status := gjson.GetBytes(result,"status").String()
+		status := gjson.GetBytes(result, "status").String()
 		switch status {
 		case "READY":
 			return result, nil
@@ -71,4 +71,3 @@ func PollUntilReady(domain string) ([]byte, error) {
 		time.Sleep(10 * time.Second) // Wait before polling again
 	}
 }
-

@@ -235,14 +235,26 @@ func existsWeakCipher(endpoint gjson.Result) (existWeakCipher bool) {
 	return existWeakCipher
 }
 
-/* generateSummary builds a string based on the domain information and additionally builds a verdict.
-Args:
+/*
+generateSummary builds a human-readable TLS security summary for a domain
+based on the aggregated results of all scanned endpoints. In addition to
+the textual summary, it computes a final security verdict.
 
-		reportInfo *FilteredTLSReport: is the report info so far and will be used to put together the summary
+The function analyzes multiple TLS-related factors across endpoints, such as:
+- Best overall TLS grade
+- Presence of warnings or exceptional configurations
+- Supported TLS versions (e.g., TLS 1.3)
+- HSTS configuration
+- Weak cipher usage
+- Certificate expiration status
+- Certificate chain issues
+
+Args:
+		reportInfo *FilteredTLSReport: Pointer to the filtered TLS report struct
 
 Returns:
-		string: the complete summary + verdict
-
+		string: A complete summary string describing the domain’s TLS security
+			posture, including a clearly defined final verdict.
 */
 
 func generateSummary(reportInfo *FilteredTLSReport) string {
@@ -292,77 +304,12 @@ func generateSummary(reportInfo *FilteredTLSReport) string {
 
 	var sb strings.Builder
 
-	// Introduction
-	sb.WriteString(fmt.Sprintf(" Análisis TLS para %s - Calificación general: %s", reportInfo.Host, bestGrade))
+	summaryString := buildSummary(reportInfo, bestGrade, hasWarningsAny, isExceptionalAny, hasTLS13, hasHSTS, hasWeakCiphersAny, minExpiresDays, chainIssuesAny)
+	sb.WriteString(summaryString)
 
-	// Protocols
-	if hasTLS13 {
-		sb.WriteString(" - Soporta TLS 1.3 (excelente nivel de seguridad actual).")
-	} else if containsAny(reportInfo.Endpoints[0].Protocols, "TLS 1.2") {
-		sb.WriteString(" - Soporta TLS 1.2, pero sin TLS 1.3 (aceptable, pero no óptimo en 2026).")
-	} else {
-		sb.WriteString(" - Protocolos obsoletos o inseguros detectados.")
-	}
-
-	// Cipher strength
-	if len(reportInfo.Endpoints) > 0 {
-		ep := reportInfo.Endpoints[0] //first as reference
-		if ep.MaxCipherStrength >= 256 {
-			sb.WriteString(" - Cifrado fuerte (hasta 256 bits).")
-		} else if ep.MaxCipherStrength >= 128 {
-			sb.WriteString(" - Cifrado aceptable (128 bits).")
-		} else {
-			sb.WriteString(" - Cifrado débil detectado.")
-		}
-
-		if hasWeakCiphersAny {
-			sb.WriteString(" - Atención: hay suites cifradas débiles habilitadas.")
-		}
-	}
-
-	// HSTS
-	if hasHSTS {
-		sb.WriteString(" - HSTS está activo (buena protección contra downgrade).")
-	} else {
-		sb.WriteString(" - Sin HSTS → vulnerable a ataques de downgrade (HTTP plano posible).")
-	}
-
-	// Certificate
-	if minExpiresDays > 30 {
-		sb.WriteString(" - Certificado válido por más de 30 días.")
-	} else if minExpiresDays > 0 {
-		sb.WriteString(fmt.Sprintf(" - Certificado expira en %.1f días → renovar pronto.", minExpiresDays))
-	} else {
-		sb.WriteString(" - Certificado expirado o inválido → sitio inseguro.")
-	}
-
-	// Warnings and exceptions
-	if hasWarningsAny {
-		sb.WriteString(" - Existen advertencias menores en la configuración.")
-	}
-	if isExceptionalAny {
-		sb.WriteString(" - Al menos un endpoint tiene configuración excepcional.")
-	}
-	if chainIssuesAny > 0 {
-		sb.WriteString(" - Problemas detectados en la cadena de certificados.\n")
-	}
-
-	// Final verdict
-	var verdict string
-	switch {
-	case bestGrade == "A+" || (bestGrade == "A" && isExceptionalAny && !hasWarningsAny && hasTLS13 && hasHSTS):
-		verdict = " Excelente"
-	case bestGrade == "A" || (bestGrade == "A-" && hasTLS13 && hasHSTS):
-		verdict = " Buena"
-	case bestGrade == "B" || bestGrade == "C":
-		verdict = " Aceptable (se recomienda mejorar)"
-	case bestGrade == "D" || bestGrade == "E":
-		verdict = " Deficiente (riesgo alto)"
-	default:
-		verdict = " Muy mala (sitio inseguro)"
-	}
-
-	sb.WriteString(" VEREDICTO FINAL: " + verdict)
+	finalVerdict := buildVerdict(bestGrade, isExceptionalAny, hasWarningsAny, hasTLS13, hasHSTS)
+	sb.WriteString(" VEREDICTO FINAL: ")
+	sb.WriteString(finalVerdict)
 
 	return sb.String()
 }
@@ -445,4 +392,141 @@ func containsAny(slice []string, items ...string) bool {
 		}
 	}
 	return false
+}
+
+/*
+buildSummary constructs a human-readable summary string for the TLS security report.
+
+It takes the pre-calculated analysis flags (best grade, presence of TLS 1.3, HSTS, etc.)
+and builds a concise, informative text that highlights the most important security aspects
+of the domain.
+
+The resulting string uses simple bullet points with hyphens (-) for easy reading
+and includes key observations about protocols, cipher strength, HSTS, certificate status,
+warnings, exceptional configuration, and chain issues.
+
+Args:
+
+	reportInfo *FilteredTLSReport: The filtered report containing host and endpoints data.
+	bestGrade string: The highest grade found across all endpoints (e.g., "A+", "A", "F").
+	hasWarningsAny bool: True if any endpoint has warnings.
+	isExceptionalAny bool: True if any endpoint has an exceptional configuration.
+	hasTLS13 bool: True if at least one endpoint supports TLS 1.3.
+	hasHSTS bool: True if HSTS is present on at least one endpoint.
+	hasWeakCiphersAny bool: True if any endpoint has weak cipher suites enabled.
+	minExpiresDays float64: The lowest number of days remaining until certificate expiration
+	                        across all endpoints.
+	chainIssuesAny int64: The highest chain issues value found across endpoints
+	                      (0 = no issues).
+
+Returns:
+
+	string: A formatted summary string ready for display or storage.
+*/
+func buildSummary(reportInfo *FilteredTLSReport, bestGrade string, hasWarningsAny bool, isExceptionalAny bool, hasTLS13 bool, hasHSTS bool, hasWeakCiphersAny bool,
+	minExpiresDays float64, chainIssuesAny int64) string {
+
+	var sb strings.Builder
+
+	// Introduction
+	sb.WriteString(fmt.Sprintf(" Análisis TLS para %s - Calificación general: %s", reportInfo.Host, bestGrade))
+
+	// Protocols
+	if hasTLS13 {
+		sb.WriteString(" - Soporta TLS 1.3 (excelente nivel de seguridad actual).")
+	} else if containsAny(reportInfo.Endpoints[0].Protocols, "TLS 1.2") {
+		sb.WriteString(" - Soporta TLS 1.2, pero sin TLS 1.3 (aceptable, pero no óptimo en 2026).")
+	} else {
+		sb.WriteString(" - Protocolos obsoletos o inseguros detectados.")
+	}
+
+	// Cipher strength
+	if len(reportInfo.Endpoints) > 0 {
+		ep := reportInfo.Endpoints[0] //first as reference
+		if ep.MaxCipherStrength >= 256 {
+			sb.WriteString(" - Cifrado fuerte (hasta 256 bits).")
+		} else if ep.MaxCipherStrength >= 128 {
+			sb.WriteString(" - Cifrado aceptable (128 bits).")
+		} else {
+			sb.WriteString(" - Cifrado débil detectado.")
+		}
+
+		if hasWeakCiphersAny {
+			sb.WriteString(" - Atención: hay suites cifradas débiles habilitadas.")
+		}
+	}
+
+	// HSTS
+	if hasHSTS {
+		sb.WriteString(" - HSTS está activo (buena protección contra downgrade).")
+	} else {
+		sb.WriteString(" - Sin HSTS → vulnerable a ataques de downgrade (HTTP plano posible).")
+	}
+
+	// Certificate
+	if minExpiresDays > 30 {
+		sb.WriteString(" - Certificado válido por más de 30 días.")
+	} else if minExpiresDays > 0 {
+		sb.WriteString(fmt.Sprintf(" - Certificado expira en %.1f días → renovar pronto.", minExpiresDays))
+	} else {
+		sb.WriteString(" - Certificado expirado o inválido → sitio inseguro.")
+	}
+
+	// Warnings and exceptions
+	if hasWarningsAny {
+		sb.WriteString(" - Existen advertencias menores en la configuración.")
+	}
+	if isExceptionalAny {
+		sb.WriteString(" - Al menos un endpoint tiene configuración excepcional.")
+	}
+	if chainIssuesAny > 0 {
+		sb.WriteString(" - Problemas detectados en la cadena de certificados.\n")
+	}
+
+	return sb.String()
+}
+
+/*
+buildVerdict determines and returns a clear, human-readable security verdict
+based on the overall TLS grade and key security indicators from the report.
+
+The verdict reflects a realistic evaluation of the domain's TLS configuration in 2026,
+prioritizing modern standards (TLS 1.3, HSTS presence, absence of warnings, and exceptional setup).
+
+Logic overview:
+- "Excelente" requires A+ or a perfect A with TLS 1.3, HSTS, no warnings, and exceptional config.
+- "Buena" for solid A or A- with TLS 1.3 and HSTS.
+- "Aceptable" for B/C grades (functional but room for improvement).
+- "Deficiente" for D/E (high risk).
+- "Muy mala" for everything else (F or worse).
+
+Args:
+
+	bestGrade string: The highest grade found across all endpoints (e.g. "A+", "A", "F").
+	isExceptionalAny bool: True if at least one endpoint has an exceptional configuration.
+	hasWarningsAny bool: True if any endpoint has configuration warnings.
+	hasTLS13 bool: True if at least one endpoint supports TLS 1.3.
+	hasHSTS bool: True if HSTS is present on at least one endpoint.
+
+Returns:
+
+	string: A concise verdict string (e.g. " Excelente", " Buena", " Muy mala (sitio inseguro)").
+*/
+func buildVerdict(bestGrade string, isExceptionalAny bool, hasWarningsAny bool, hasTLS13 bool, hasHSTS bool) string {
+	// Final verdict
+	var verdict string
+	switch {
+	case bestGrade == "A+" || (bestGrade == "A" && isExceptionalAny && !hasWarningsAny && hasTLS13 && hasHSTS):
+		verdict = " Excelente"
+	case bestGrade == "A" || (bestGrade == "A-" && hasTLS13 && hasHSTS):
+		verdict = " Buena"
+	case bestGrade == "B" || bestGrade == "C":
+		verdict = " Aceptable (se recomienda mejorar)"
+	case bestGrade == "D" || bestGrade == "E":
+		verdict = " Deficiente (riesgo alto)"
+	default:
+		verdict = " Muy mala (sitio inseguro)"
+	}
+
+	return verdict
 }

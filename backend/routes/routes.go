@@ -31,7 +31,6 @@ func SetupRoutes(router *gin.Engine, handler *handlers.Handler) {
 	/*
 		Defining the route group for domain information
 	*/
-	// handler := &handlers.Handler{DB: config.GetMongoClient()}
 	router.GET("/domains-info", handler.GetDomainsInformation)
 	router.GET("/domains-info/:id", handler.GetDomainsInformationByID)
 	router.POST("/create-domain-info", handler.PostDomainInformation)

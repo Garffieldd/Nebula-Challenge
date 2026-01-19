@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"github.com/Nebula-Challenge/config"
 	"github.com/Nebula-Challenge/handlers"
 	"github.com/Nebula-Challenge/routes"
 	"github.com/gin-gonic/gin"
+	"log"
 )
 
 /*
